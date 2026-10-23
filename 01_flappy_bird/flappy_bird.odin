@@ -16,6 +16,8 @@ game_over: bool
 
 obstacle: rl.Rectangle
 obstacle_vel: rl.Vector2
+score_collider: rl.Rectangle
+got_score: bool
 
 restart :: proc() {
 	bird_pos = {f32(rl.GetScreenWidth() / 4), f32(rl.GetScreenHeight() / 2)}
@@ -35,6 +37,13 @@ main :: proc() {
 	bird_pos = {f32(rl.GetScreenWidth() / 4), f32(rl.GetScreenHeight() / 2)}
 
 	obstacle = rl.Rectangle({f32(rl.GetScreenWidth() - 50), 0, 100, 300})
+
+	score_collider = rl.Rectangle {
+		obstacle.x,
+		obstacle.y,
+		obstacle.width - 10,
+		f32(rl.GetScreenHeight()),
+	}
 
 	for !rl.WindowShouldClose() {
 		// ===============================
@@ -90,6 +99,7 @@ main :: proc() {
 
 			// update the obstacle movements
 			obstacle.x -= obstacle_vel.x * rl.GetFrameTime()
+			score_collider.x -= obstacle_vel.x * rl.GetFrameTime()
 
 			if rl.CheckCollisionCircleRec(bird_pos, 32, obstacle) {
 				game_over = true
@@ -97,9 +107,25 @@ main :: proc() {
 				obstacle_vel = 0
 			}
 
-			if obstacle.x < 0 {
-				obstacle.x = f32(rl.GetScreenWidth() - 50)
+			rl.DrawRectangleRec(score_collider, {0, 255, 0, 100})
+
+			if rl.CheckCollisionCircleRec(bird_pos, 32, score_collider) {
+				if !got_score {
+					score += 1
+					got_score = true
+				}
 			}
+			if !rl.CheckCollisionCircleRec(bird_pos, 32, score_collider) {
+				if got_score {
+					got_score = false
+				}
+			}
+
+			if obstacle.x + obstacle.width < 0 {
+				obstacle.x = f32(rl.GetScreenWidth() - 50)
+				score_collider.x = f32(rl.GetScreenWidth() - 50)
+			}
+
 		}
 
 
@@ -111,6 +137,8 @@ main :: proc() {
 
 		rl.DrawCircleV(bird_pos, 32, rl.RED)
 		rl.DrawRectangleRec(obstacle, rl.DARKPURPLE)
+		score_text := fmt.ctprintf("Score: %v", score)
+		rl.DrawText(score_text, 20, 20, 15, rl.WHITE)
 
 		if game_over {
 			started = false
