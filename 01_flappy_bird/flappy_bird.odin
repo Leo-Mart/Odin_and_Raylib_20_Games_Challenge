@@ -3,7 +3,10 @@ package flappy_bird
 import "core:fmt"
 import rl "vendor:raylib"
 
-obstacle_speed: int
+OBSTACLE_SPEED :: 300
+BASE_JUMP_SPEED :: 300
+BASE_GRAVITY :: 500
+
 started: bool
 bird_pos: rl.Vector2
 bird_vel: rl.Vector2
@@ -11,8 +14,12 @@ bird_vel: rl.Vector2
 score: int
 game_over: bool
 
+obstacle: rl.Rectangle
+obstacle_vel: rl.Vector2
+
 restart :: proc() {
 	bird_pos = {f32(rl.GetScreenWidth() / 4), f32(rl.GetScreenHeight() / 2)}
+	obstacle = rl.Rectangle({f32(rl.GetScreenWidth() - 50), 0, 100, 300})
 	game_over = false
 	score = 0
 }
@@ -24,35 +31,41 @@ main :: proc() {
 	// ===============================
 	// Init
 	// ===============================
-	//
-	//
 	// Inital starting point
 	bird_pos = {f32(rl.GetScreenWidth() / 4), f32(rl.GetScreenHeight() / 2)}
+
+	obstacle = rl.Rectangle({f32(rl.GetScreenWidth() - 50), 0, 100, 300})
 
 	for !rl.WindowShouldClose() {
 		// ===============================
 		// Update each new frame
 		// ===============================
 		//
-		if game_over && rl.IsKeyPressed(.SPACE) {
+		//
+		if !started {
+			if rl.IsKeyPressed(.SPACE) {
+				started = true
+				restart()
+			}
+		} else if game_over && rl.IsKeyPressed(.SPACE) {
 			restart()
 		}
 
 		// Gravity
-		bird_vel.y += 500 * rl.GetFrameTime()
+		bird_vel.y += BASE_GRAVITY * rl.GetFrameTime()
+
+		// obstacle velocity
+		obstacle_vel.x = OBSTACLE_SPEED
 
 		// Jump
 		if rl.IsKeyPressed(.SPACE) {
-			bird_vel.y = -300
+			bird_vel.y = -BASE_JUMP_SPEED
 		}
 
 		// restart the game if the player goes under the "floor"
 		if bird_pos.y > f32(rl.GetScreenHeight() + 32) {
 			game_over = true
 		}
-
-
-		// check collision with floor, and maybe roof?
 
 		// add obstacles spawning in from the right, moving towards the left.
 		// If they collide with the player, it is game over
@@ -70,7 +83,24 @@ main :: proc() {
 		// background art? player art?
 		// Parallax scroll the background?
 
-		bird_pos += bird_vel * rl.GetFrameTime()
+		if started {
+
+			// update player sprite
+			bird_pos += bird_vel * rl.GetFrameTime()
+
+			// update the obstacle movements
+			obstacle.x -= obstacle_vel.x * rl.GetFrameTime()
+
+			if rl.CheckCollisionCircleRec(bird_pos, 32, obstacle) {
+				game_over = true
+				bird_vel = 0
+				obstacle_vel = 0
+			}
+
+			if obstacle.x < 0 {
+				obstacle.x = f32(rl.GetScreenWidth() - 50)
+			}
+		}
 
 
 		// ===============================
@@ -80,8 +110,10 @@ main :: proc() {
 		rl.ClearBackground({150, 190, 220, 255})
 
 		rl.DrawCircleV(bird_pos, 32, rl.RED)
+		rl.DrawRectangleRec(obstacle, rl.DARKPURPLE)
 
 		if game_over {
+			started = false
 			text := fmt.ctprintf("Score: %v. Play again? Press: SPACE", score)
 			text_width := rl.MeasureText(text, 15)
 			rl.DrawText(
@@ -91,7 +123,18 @@ main :: proc() {
 				15,
 				rl.WHITE,
 			)
+		} else if !started {
+			text := fmt.ctprintf("Press: SPACE to start playing")
+			text_width := rl.MeasureText(text, 15)
+			rl.DrawText(
+				text,
+				rl.GetScreenWidth() / 2 - text_width / 2,
+				rl.GetScreenHeight() / 2,
+				15,
+				rl.WHITE,
+			)
 		}
+
 
 		rl.EndDrawing()
 	}
