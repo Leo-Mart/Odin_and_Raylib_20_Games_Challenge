@@ -1,16 +1,20 @@
 package flappy_bird
 
+import "core:fmt"
 import rl "vendor:raylib"
 
 obstacle_speed: int
 started: bool
 bird_pos: rl.Vector2
 bird_vel: rl.Vector2
+
+score: int
 game_over: bool
 
 restart :: proc() {
 	bird_pos = {f32(rl.GetScreenWidth() / 4), f32(rl.GetScreenHeight() / 2)}
 	game_over = false
+	score = 0
 }
 
 main :: proc() {
@@ -30,7 +34,7 @@ main :: proc() {
 		// Update each new frame
 		// ===============================
 		//
-		if game_over {
+		if game_over && rl.IsKeyPressed(.SPACE) {
 			restart()
 		}
 
@@ -44,7 +48,6 @@ main :: proc() {
 
 		// restart the game if the player goes under the "floor"
 		if bird_pos.y > f32(rl.GetScreenHeight() + 32) {
-			//TODO: add a game over screen here that shows accumulated score and lets the player push "space" to restart the game
 			game_over = true
 		}
 
@@ -77,6 +80,18 @@ main :: proc() {
 		rl.ClearBackground({150, 190, 220, 255})
 
 		rl.DrawCircleV(bird_pos, 32, rl.RED)
+
+		if game_over {
+			text := fmt.ctprintf("Score: %v. Play again? Press: SPACE", score)
+			text_width := rl.MeasureText(text, 15)
+			rl.DrawText(
+				text,
+				rl.GetScreenWidth() / 2 - text_width / 2,
+				rl.GetScreenHeight() / 2,
+				15,
+				rl.WHITE,
+			)
+		}
 
 		rl.EndDrawing()
 	}
