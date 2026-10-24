@@ -1,9 +1,12 @@
 package flappy_bird
 
 import "core:fmt"
+import "core:math/rand"
 import rl "vendor:raylib"
 
 OBSTACLE_SPEED :: 300
+MAX_AMOUNT_OBSTACLES :: 100
+OBSTACLE_WIDTH :: 150
 BASE_JUMP_SPEED :: 300
 BASE_GRAVITY :: 500
 
@@ -14,14 +17,17 @@ bird_vel: rl.Vector2
 score: int
 game_over: bool
 
-obstacle: rl.Rectangle
-obstacle_vel: rl.Vector2
-score_collider: rl.Rectangle
+Obstacle :: struct {
+	rec:    rl.Rectangle,
+	active: bool,
+}
+
+obstacles := [MAX_AMOUNT_OBSTACLES * 2]Obstacle{}
+obstaclesPos := [MAX_AMOUNT_OBSTACLES]rl.Vector2{}
 got_score: bool
 
 restart :: proc() {
 	bird_pos = {f32(rl.GetScreenWidth() / 4), f32(rl.GetScreenHeight() / 2)}
-	obstacle = rl.Rectangle({f32(rl.GetScreenWidth() - 50), 0, 100, 300})
 	game_over = false
 	score = 0
 }
@@ -29,28 +35,36 @@ restart :: proc() {
 main :: proc() {
 	rl.SetConfigFlags({.VSYNC_HINT})
 	rl.InitWindow(1280, 720, "Flappy birb")
-	rl.SetTargetFPS(500)
+	rl.SetTargetFPS(60)
+
 	// ===============================
 	// Init
 	// ===============================
-	// Inital starting point
 	bird_pos = {f32(rl.GetScreenWidth() / 4), f32(rl.GetScreenHeight() / 2)}
 
-	obstacle = rl.Rectangle({f32(rl.GetScreenWidth() - 50), 0, 100, 300})
+	for i in 0 ..< MAX_AMOUNT_OBSTACLES {
+		obstaclesPos[i].x = f32(1000 + (280 * i))
+		obstaclesPos[i].y = -f32(rand.int_range(0, 120))
+	}
 
-	score_collider = rl.Rectangle {
-		obstacle.x,
-		obstacle.y,
-		obstacle.width - 10,
-		f32(rl.GetScreenHeight()),
+	for i := 0; i < MAX_AMOUNT_OBSTACLES * 2; i += 2 {
+		obstacles[i].rec.x = obstaclesPos[i / 2].x
+		obstacles[i].rec.y = obstaclesPos[i / 2].y
+		obstacles[i].rec.width = OBSTACLE_WIDTH
+		obstacles[i].rec.height = 255
+
+		obstacles[i + 1].rec.x = obstaclesPos[i / 2].x
+		obstacles[i + 1].rec.y = 870 + obstaclesPos[i / 2].y - 255
+		obstacles[i + 1].rec.width = OBSTACLE_WIDTH
+		obstacles[i + 1].rec.height = 255
+
+		obstacles[i / 2].active = true
 	}
 
 	for !rl.WindowShouldClose() {
 		// ===============================
 		// Update each new frame
 		// ===============================
-		//
-		//
 		if !started {
 			if rl.IsKeyPressed(.SPACE) {
 				started = true
@@ -63,9 +77,6 @@ main :: proc() {
 		// Gravity
 		bird_vel.y += BASE_GRAVITY * rl.GetFrameTime()
 
-		// obstacle velocity
-		obstacle_vel.x = OBSTACLE_SPEED
-
 		// Jump
 		if rl.IsKeyPressed(.SPACE) {
 			bird_vel.y = -BASE_JUMP_SPEED
@@ -76,18 +87,10 @@ main :: proc() {
 			game_over = true
 		}
 
-		// add obstacles spawning in from the right, moving towards the left.
-		// If they collide with the player, it is game over
-		// If the player passes them, they should get score. A collider box that extends upwards/downwards from the obstacle, when the player collides with it, award point?
-		// Although, would that give some false positives? Like they collide with an obstacle and still get a point while getting game over?
-		// Make the score collider thinner? Award point when exiting the collider?
-		//
-		// Spawn in new obstacles, put them into an array. When they "slide off" the left side. Despawn them and either delete them, or put them back into rotation.
-
-
-		// Add a game over screen that lets player see the score they got. Press space to reset and play again.
-		// Add a highscore/leaderboard here as well, track between sessions and show the highest score.
-
+		// spawn new obstacles after the end has been reached
+		// maybe increase difficulty at certan intervals?
+		// PLay around with size/position of the obstacles and the gap between them.
+		// Add a highscore/leaderboard, track between sessions and show the highest score.
 
 		// background art? player art?
 		// Parallax scroll the background?
@@ -97,34 +100,26 @@ main :: proc() {
 			// update player sprite
 			bird_pos += bird_vel * rl.GetFrameTime()
 
-			// update the obstacle movements
-			obstacle.x -= obstacle_vel.x * rl.GetFrameTime()
-			score_collider.x -= obstacle_vel.x * rl.GetFrameTime()
-
-			if rl.CheckCollisionCircleRec(bird_pos, 32, obstacle) {
-				game_over = true
-				bird_vel = 0
-				obstacle_vel = 0
+			for i in 0 ..< MAX_AMOUNT_OBSTACLES {
+				obstaclesPos[i].x -= OBSTACLE_SPEED * rl.GetFrameTime()
 			}
 
-			rl.DrawRectangleRec(score_collider, {0, 255, 0, 100})
+			for i := 0; i < MAX_AMOUNT_OBSTACLES * 2; i += 2 {
+				obstacles[i].rec.x = obstaclesPos[i / 2].x
+				obstacles[i + 1].rec.x = obstaclesPos[i / 2].x
+			}
 
-			if rl.CheckCollisionCircleRec(bird_pos, 32, score_collider) {
-				if !got_score {
+			for i in 0 ..< MAX_AMOUNT_OBSTACLES * 2 {
+
+				if rl.CheckCollisionCircleRec(bird_pos, 32, obstacles[i].rec) {
+					game_over = true
+				}
+				if bird_pos.x > obstaclesPos[i / 2].x && obstacles[i / 2].active {
 					score += 1
-					got_score = true
-				}
-			}
-			if !rl.CheckCollisionCircleRec(bird_pos, 32, score_collider) {
-				if got_score {
-					got_score = false
+					obstacles[i / 2].active = false
 				}
 			}
 
-			if obstacle.x + obstacle.width < 0 {
-				obstacle.x = f32(rl.GetScreenWidth() - 50)
-				score_collider.x = f32(rl.GetScreenWidth() - 50)
-			}
 
 		}
 
@@ -135,10 +130,6 @@ main :: proc() {
 		rl.BeginDrawing()
 		rl.ClearBackground({150, 190, 220, 255})
 
-		rl.DrawCircleV(bird_pos, 32, rl.RED)
-		rl.DrawRectangleRec(obstacle, rl.DARKPURPLE)
-		score_text := fmt.ctprintf("Score: %v", score)
-		rl.DrawText(score_text, 20, 20, 15, rl.WHITE)
 
 		if game_over {
 			started = false
@@ -162,6 +153,16 @@ main :: proc() {
 				rl.WHITE,
 			)
 		}
+
+
+		rl.DrawCircleV(bird_pos, 32, rl.RED)
+
+		for i in 0 ..< MAX_AMOUNT_OBSTACLES {
+
+			rl.DrawRectangleRec(obstacles[i].rec, rl.DARKPURPLE)
+		}
+		score_text := fmt.ctprintf("Score: %v", score)
+		rl.DrawText(score_text, 20, 20, 15, rl.WHITE)
 
 
 		rl.EndDrawing()
